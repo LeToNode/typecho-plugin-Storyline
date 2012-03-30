@@ -60,13 +60,22 @@ class Storyline_Plugin implements Typecho_Plugin_Interface
      */
 
    public static function render() {
+    $userJSON = FALSE;
+    $init = '';
+    if($userJSON == TRUE){
+        $init = "timeline.init('/usr/Storyline.json');";   
+    } else {
+        $init = "timeline.init();";
+    }
+    
     $options = Helper::options();
-	$file="./usr/Storyline.json";
-	//if($file){
-		writeStoryData($file,$options);
-	//}
+    if($userJSON == TRUE){
+        $file="./usr/Storyline.json";
+        if($file){
+            writeStoryData($file,$options);
+        }    
+    }
 	
-
 
     $style = Typecho_Common::url('Storyline/Timeline/timeline.css', $options->pluginUrl);
     $jquery = Typecho_Common::url('Storyline/Timeline/jquery-min.js', $options->pluginUrl);
@@ -77,17 +86,45 @@ class Storyline_Plugin implements Typecho_Plugin_Interface
     echo "<script>
             $(document).ready(function() {
                 timeline = new VMM.Timeline();
-                timeline.init('/usr/Storyline.json');
+                timeline.init();
             });
         </script>";
     echo "\n";
-	echo "<div id=\"timeline\"></div>";
-  }
-  
 
+    if($userJSON == TRUE){
+        echo "<div id=\"timeline\"></div>";    
+    } else {
+        $pagedata = getPageData($options);
+        echo $pagedata;
+    }
+	
+  }
 }
 
-  function writeStoryData($file,$options){
+function getPageData($options){
+    $pagedata = '<div id="timeline"><section><time>2006,1,1</time><h2>'.$options->title.'</h2><article><p>'.$options->description.'</p></article></section><ul>';
+
+    /**获取适配器名称 , Typecho_Db::SORT_DESC*/
+    $db = Typecho_Db::get();    
+    /**获取日志总数*/
+    $result = $db->fetchAll($db->select()->from('table.contents')
+        ->where('table.contents.status = ?', 'publish')     
+        ->where('table.contents.type = ?', 'post')      
+        ->order('table.contents.created'));
+    
+    $size = sizeof($result);
+    for($i =0;$i < $size ; ++$i)
+    {
+        $post = $result[$i];
+        $value = Typecho_Widget::widget('Widget_Abstract_Contents')->push($post);
+        
+        $pagedata = $pagedata.'<li>'.'<time> '.$value['date']->year.','.$value['date']->month.','. $value['date']->day .'</time>'.'<h3>'.$value['title'].'</h3>'.'</li>';
+    }
+    $pagedata = $pagedata.'</ul></div>';
+    return $pagedata;   
+}
+
+function writeStoryData($file,$options){
 	$jsondata = '{"timeline":{"headline":"'.$options->title.'","type":"default","startDate":"2006","text":"'.$options->description.'","date": [';
 		
 	 /**获取适配器名称 , Typecho_Db::SORT_DESC*/
